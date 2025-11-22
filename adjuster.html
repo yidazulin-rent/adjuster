@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>簽單欄位拖曳定位器</title>
+<title>簽單欄位拖曳定位器（中文版）</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body {
@@ -10,11 +10,19 @@
     background:#f0f0f0;
     font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
   }
+  .top-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 16px;
+    font-size:14px;
+  }
   #canvasWrap {
     position: relative;
     width: fit-content;
-    margin: 20px auto;
+    margin: 0 auto 20px;
     border:1px solid #888;
+    transform-origin: top left;
   }
   #template {
     display:block;
@@ -22,72 +30,100 @@
   }
   .dragItem {
     position:absolute;
-    padding:4px 8px;
-    background:rgba(255,255,255,0.8);
-    border:1px solid #000;
+    padding:6px 10px;
+    background:rgba(255,255,255,0.85);
+    border:2px solid #000;
     border-radius:4px;
     cursor:move;
     user-select:none;
-    font-size:14px;
+    font-size:16px;
+    white-space:nowrap;
   }
   #output {
     width:90%;
-    margin:20px auto;
+    margin:0 auto 20px;
     padding:10px;
     border:1px solid #666;
     background:#fff;
     white-space:pre-wrap;
-    font-size:14px;
+    font-size:13px;
   }
   button {
-    display:block;
-    margin:10px auto;
     padding:8px 16px;
     font-size:16px;
+    margin:10px auto 20px;
+    display:block;
   }
 </style>
 </head>
 <body>
+
+<div class="top-bar">
+  <label>縮放：<input id="scaleRange" type="range" min="50" max="150" value="100"> <span id="scaleVal">100%</span></label>
+</div>
 
 <div id="canvasWrap">
   <img id="template" src="dispatch-template.jpg">
 </div>
 
 <button onclick="exportPositions()">匯出所有座標</button>
-
 <div id="output"></div>
 
 <script>
-const fields = [
-  "companyTitle", "clientCompany", "dateMonth", "dateDay",
-  "serviceSong", "serviceJie", "serviceBao",
-  "passenger", "phone", "startTime",
-  "origin", "destination",
-  "holdSign",
-  "carTypeSedan","carTypeSUV","carTypeOther",
-  "people", "driver", "carNo"
+const fieldDefs = [
+  { id:"companyTitle",  label:"公司抬頭" },
+  { id:"clientCompany", label:"客戶公司" },
+  { id:"dateMonth",     label:"日期_月" },
+  { id:"dateDay",       label:"日期_日" },
+  { id:"serviceSong",   label:"✓送機" },
+  { id:"serviceJie",    label:"✓接機" },
+  { id:"serviceBao",    label:"✓包車" },
+  { id:"passenger",     label:"乘客" },
+  { id:"phone",         label:"電話" },
+  { id:"startTime",     label:"開始/班機時間" },
+  { id:"origin",        label:"起點" },
+  { id:"destination",   label:"終點" },
+  { id:"holdSign",      label:"✓舉牌" },
+  { id:"carTypeSedan",  label:"✓轎車" },
+  { id:"carTypeSUV",    label:"✓休旅車" },
+  { id:"carTypeOther",  label:"✓其他" },
+  { id:"people",        label:"人數" },
+  { id:"driver",        label:"駕駛" },
+  { id:"carNo",         label:"車號" }
 ];
 
 const wrap = document.getElementById("canvasWrap");
 
-// --- 在底圖上建立拖曳框 ---
-fields.forEach((name, idx) => {
-  const div = document.createElement("div");
-  div.className = "dragItem";
-  div.innerText = name;
-  div.style.left = 50 + idx*10 + "px"; // 初始放一排
-  div.style.top = 20 + "px";
-  wrap.appendChild(div);
+// 等底圖載完再放方塊（避免位置怪怪的）
+const templateImg = document.getElementById("template");
+templateImg.onload = () => {
+  placeBlocks();
+};
+if (templateImg.complete) {
+  // 已經在 cache
+  placeBlocks();
+}
 
-  makeDraggable(div);
-});
+function placeBlocks(){
+  fieldDefs.forEach((f, idx) => {
+    const div = document.createElement("div");
+    div.className = "dragItem";
+    div.dataset.id = f.id;
+    div.innerText = f.label;
+    // 先全部丟在左上角一區，避免疊在一起看不到
+    div.style.left = 20 + (idx % 3) * 120 + "px";
+    div.style.top  = 20 + Math.floor(idx / 3) * 50 + "px";
+    wrap.appendChild(div);
+    makeDraggable(div);
+  });
+}
 
-// --- 拖曳功能 ---
+// 拖曳功能
 function makeDraggable(el) {
   let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
 
   el.addEventListener("mousedown", dragStart);
-  el.addEventListener("touchstart", dragStart);
+  el.addEventListener("touchstart", dragStart, {passive:false});
 
   function dragStart(e) {
     e.preventDefault();
@@ -102,7 +138,7 @@ function makeDraggable(el) {
     document.addEventListener("mousemove", dragging);
     document.addEventListener("mouseup", dragEnd);
 
-    document.addEventListener("touchmove", dragging);
+    document.addEventListener("touchmove", dragging, {passive:false});
     document.addEventListener("touchend", dragEnd);
   }
 
@@ -112,29 +148,47 @@ function makeDraggable(el) {
     const dy = evt.clientY - startY;
 
     el.style.left = offsetX + dx + "px";
-    el.style.top = offsetY + dy + "px";
+    el.style.top  = offsetY + dy + "px";
   }
 
   function dragEnd() {
     document.removeEventListener("mousemove", dragging);
     document.removeEventListener("mouseup", dragEnd);
-
     document.removeEventListener("touchmove", dragging);
     document.removeEventListener("touchend", dragEnd);
   }
 }
 
-// --- 匯出座標 ---
+// 匯出座標（以原圖像素為準，會把縮放算回去）
 function exportPositions() {
+  const scale = parseInt(document.getElementById("scaleRange").value, 10) / 100;
   const items = document.getElementsByClassName("dragItem");
   let result = "";
 
-  [...items].forEach(el => {
-    result += `${el.innerText}: { x: ${el.offsetLeft}, y: ${el.offsetTop} }\n`;
+  Array.from(items).forEach(el => {
+    const id = el.dataset.id;
+    const fieldDef = fieldDefs.find(f => f.id === id);
+    const label = fieldDef ? fieldDef.label : id;
+
+    // 目前的 left/top 是縮放後的座標，要除以 scale
+    const x = Math.round(el.offsetLeft / scale);
+    const y = Math.round(el.offsetTop / scale);
+
+    result += `${id}: { x: ${x}, y: ${y} }    // ${label}\n`;
   });
 
   document.getElementById("output").innerText = result;
 }
+
+// 縮放滑桿
+const scaleRange = document.getElementById("scaleRange");
+const scaleVal = document.getElementById("scaleVal");
+scaleRange.addEventListener("input", () => {
+  const v = parseInt(scaleRange.value, 10);
+  scaleVal.textContent = v + "%";
+  const s = v / 100;
+  wrap.style.transform = "scale(" + s + ")";
+});
 </script>
 </body>
 </html>
