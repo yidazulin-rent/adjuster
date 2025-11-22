@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>簽單欄位拖曳定位器</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body {
+    margin:0;
+    background:#f0f0f0;
+    font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  }
+  #canvasWrap {
+    position: relative;
+    width: fit-content;
+    margin: 20px auto;
+    border:1px solid #888;
+  }
+  #template {
+    display:block;
+    max-width:none;
+  }
+  .dragItem {
+    position:absolute;
+    padding:4px 8px;
+    background:rgba(255,255,255,0.8);
+    border:1px solid #000;
+    border-radius:4px;
+    cursor:move;
+    user-select:none;
+    font-size:14px;
+  }
+  #output {
+    width:90%;
+    margin:20px auto;
+    padding:10px;
+    border:1px solid #666;
+    background:#fff;
+    white-space:pre-wrap;
+    font-size:14px;
+  }
+  button {
+    display:block;
+    margin:10px auto;
+    padding:8px 16px;
+    font-size:16px;
+  }
+</style>
+</head>
+<body>
+
+<div id="canvasWrap">
+  <img id="template" src="dispatch-template.jpg">
+</div>
+
+<button onclick="exportPositions()">匯出所有座標</button>
+
+<div id="output"></div>
+
+<script>
+const fields = [
+  "companyTitle", "clientCompany", "dateMonth", "dateDay",
+  "serviceSong", "serviceJie", "serviceBao",
+  "passenger", "phone", "startTime",
+  "origin", "destination",
+  "holdSign",
+  "carTypeSedan","carTypeSUV","carTypeOther",
+  "people", "driver", "carNo"
+];
+
+const wrap = document.getElementById("canvasWrap");
+
+// --- 在底圖上建立拖曳框 ---
+fields.forEach((name, idx) => {
+  const div = document.createElement("div");
+  div.className = "dragItem";
+  div.innerText = name;
+  div.style.left = 50 + idx*10 + "px"; // 初始放一排
+  div.style.top = 20 + "px";
+  wrap.appendChild(div);
+
+  makeDraggable(div);
+});
+
+// --- 拖曳功能 ---
+function makeDraggable(el) {
+  let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+
+  el.addEventListener("mousedown", dragStart);
+  el.addEventListener("touchstart", dragStart);
+
+  function dragStart(e) {
+    e.preventDefault();
+    const evt = e.touches ? e.touches[0] : e;
+
+    startX = evt.clientX;
+    startY = evt.clientY;
+
+    offsetX = el.offsetLeft;
+    offsetY = el.offsetTop;
+
+    document.addEventListener("mousemove", dragging);
+    document.addEventListener("mouseup", dragEnd);
+
+    document.addEventListener("touchmove", dragging);
+    document.addEventListener("touchend", dragEnd);
+  }
+
+  function dragging(e) {
+    const evt = e.touches ? e.touches[0] : e;
+    const dx = evt.clientX - startX;
+    const dy = evt.clientY - startY;
+
+    el.style.left = offsetX + dx + "px";
+    el.style.top = offsetY + dy + "px";
+  }
+
+  function dragEnd() {
+    document.removeEventListener("mousemove", dragging);
+    document.removeEventListener("mouseup", dragEnd);
+
+    document.removeEventListener("touchmove", dragging);
+    document.removeEventListener("touchend", dragEnd);
+  }
+}
+
+// --- 匯出座標 ---
+function exportPositions() {
+  const items = document.getElementsByClassName("dragItem");
+  let result = "";
+
+  [...items].forEach(el => {
+    result += `${el.innerText}: { x: ${el.offsetLeft}, y: ${el.offsetTop} }\n`;
+  });
+
+  document.getElementById("output").innerText = result;
+}
+</script>
+</body>
+</html>
