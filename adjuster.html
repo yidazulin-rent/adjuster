@@ -1,194 +1,420 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>簽單欄位拖曳定位器（中文版）</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body {
-    margin:0;
-    background:#f0f0f0;
-    font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
-  }
-  .top-bar{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:10px 16px;
-    font-size:14px;
-  }
-  #canvasWrap {
-    position: relative;
-    width: fit-content;
-    margin: 0 auto 20px;
-    border:1px solid #888;
-    transform-origin: top left;
-  }
-  #template {
-    display:block;
-    max-width:none;
-  }
-  .dragItem {
-    position:absolute;
-    padding:6px 10px;
-    background:rgba(255,255,255,0.85);
-    border:2px solid #000;
-    border-radius:4px;
-    cursor:move;
-    user-select:none;
-    font-size:16px;
-    white-space:nowrap;
-  }
-  #output {
-    width:90%;
-    margin:0 auto 20px;
-    padding:10px;
-    border:1px solid #666;
-    background:#fff;
-    white-space:pre-wrap;
-    font-size:13px;
-  }
-  button {
-    padding:8px 16px;
-    font-size:16px;
-    margin:10px auto 20px;
-    display:block;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>派車簽單生成（自動換行版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: "Microsoft JhengHei","Noto Sans TC",system-ui,-apple-system,BlinkMacSystemFont;
+      background:#f5f5f5;
+      margin:0;
+      padding:16px;
+    }
+    .container {
+      max-width:900px;
+      margin:0 auto;
+      background:#fff;
+      padding:16px 16px 32px;
+      border-radius:8px;
+      box-shadow:0 2px 8px rgba(0,0,0,.1);
+    }
+    h1{
+      text-align:center;
+      margin-top:0;
+      font-size:24px;
+    }
+    form{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      font-size:16px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    label{
+      font-weight:bold;
+    }
+    input[type="text"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="time"],
+    input[type="number"]{
+      font-size:18px;
+      padding:6px 8px;
+      border:1px solid #ccc;
+      border-radius:4px;
+      width:100%;
+      box-sizing:border-box;
+    }
+    .row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .row > .field{
+      flex:1 1 150px;
+    }
+    .options{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      font-size:18px;
+    }
+    .options label{
+      font-weight:normal;
+    }
+    button{
+      margin-top:8px;
+      padding:10px 16px;
+      font-size:18px;
+      border:none;
+      border-radius:6px;
+      background:#007bff;
+      color:#fff;
+      cursor:pointer;
+    }
+    button:active{
+      transform:scale(0.98);
+    }
+
+    .hint{
+      font-size:13px;
+      color:#555;
+      margin-top:4px;
+      text-align:center;
+      line-height:1.4;
+    }
+
+    /* modal */
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.6);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
+    .modal{
+      background:#fff;
+      max-width:95vw;
+      max-height:95vh;
+      padding:8px 8px 16px;
+      border-radius:8px;
+      box-sizing:border-box;
+      text-align:center;
+    }
+    .modal img{
+      max-width:100%;
+      height:auto;
+    }
+    .modal button{
+      margin-top:8px;
+      background:#444;
+    }
+  </style>
 </head>
 <body>
+<div class="container">
+  <h1>派車、簽認單生成</h1>
 
-<div class="top-bar">
-  <label>縮放：<input id="scaleRange" type="range" min="50" max="150" value="100"> <span id="scaleVal">100%</span></label>
+  <form id="dispatchForm">
+    <div class="field">
+      <label for="companyTitle">公司抬頭（最上面）</label>
+      <input id="companyTitle" type="text" value="ＯＯ租賃有限公司" />
+    </div>
+
+    <div class="field">
+      <label for="clientCompany">客戶公司</label>
+      <input id="clientCompany" type="text" placeholder="例如：○○旅行社" />
+    </div>
+
+    <div class="field">
+      <label for="date">日期</label>
+      <input id="date" type="date" />
+      <div class="hint">會自動轉成「X月X日」印在右上角</div>
+    </div>
+
+    <div class="field">
+      <label>用途</label>
+      <div class="options">
+        <label><input type="radio" name="serviceType" value="song" checked> 送機</label>
+        <label><input type="radio" name="serviceType" value="jie"> 接機</label>
+        <label><input type="radio" name="serviceType" value="bao"> 包車</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="startTime">開始／班機時間（24H）</label>
+      <input id="startTime" type="time" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="passenger">乘客姓名（可多位）</label>
+        <input id="passenger" type="text" />
+      </div>
+      <div class="field">
+        <label for="phone">乘客電話</label>
+        <input id="phone" type="tel" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="origin">起點（可能很長的地址）</label>
+      <input id="origin" type="text" />
+    </div>
+
+    <div class="field">
+      <label for="destination">終點（可能很長的地址）</label>
+      <input id="destination" type="text" />
+    </div>
+
+    <div class="field">
+      <label>是否舉牌接機</label>
+      <div class="options">
+        <label><input id="holdSign" type="checkbox"> 需要舉牌</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>車型</label>
+      <div class="options">
+        <label><input type="radio" name="carType" value="sedan" checked> 轎車</label>
+        <label><input type="radio" name="carType" value="suv"> 休旅車</label>
+        <label><input type="radio" name="carType" value="other"> 其他（九人座）</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="people">人數</label>
+      <input id="people" type="number" min="1" inputmode="numeric" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="driver">駕駛</label>
+        <input id="driver" type="text" />
+      </div>
+      <div class="field">
+        <label for="carNo">車號</label>
+        <input id="carNo" type="text" />
+      </div>
+    </div>
+
+    <button type="submit">生成簽單圖片</button>
+    <div class="hint">
+      送出後會跳出預覽圖，手機可長按簽單圖片儲存或轉傳。
+    </div>
+  </form>
 </div>
 
-<div id="canvasWrap">
-  <img id="template" src="dispatch-template.jpg">
-</div>
+<!-- 底圖（不顯示，只給 Canvas 用） -->
+<img id="templateImage" src="dispatch-template.jpg" alt="派車簽認單底圖" style="display:none;" />
 
-<button onclick="exportPositions()">匯出所有座標</button>
-<div id="output"></div>
+<!-- 懸浮視窗 -->
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <div style="font-weight:bold;margin-bottom:4px;">已生成簽單</div>
+    <img id="resultImage" alt="簽單預覽" />
+    <div class="hint">
+      手機：長按圖片即可儲存或轉傳。<br>
+      電腦：可按右鍵另存圖片。
+    </div>
+    <button type="button" onclick="closeModal()">關閉視窗</button>
+  </div>
+</div>
 
 <script>
-const fieldDefs = [
-  { id:"companyTitle",  label:"公司抬頭" },
-  { id:"clientCompany", label:"客戶公司" },
-  { id:"dateMonth",     label:"日期_月" },
-  { id:"dateDay",       label:"日期_日" },
-  { id:"serviceSong",   label:"✓送機" },
-  { id:"serviceJie",    label:"✓接機" },
-  { id:"serviceBao",    label:"✓包車" },
-  { id:"passenger",     label:"乘客" },
-  { id:"phone",         label:"電話" },
-  { id:"startTime",     label:"開始/班機時間" },
-  { id:"origin",        label:"起點" },
-  { id:"destination",   label:"終點" },
-  { id:"holdSign",      label:"✓舉牌" },
-  { id:"carTypeSedan",  label:"✓轎車" },
-  { id:"carTypeSUV",    label:"✓休旅車" },
-  { id:"carTypeOther",  label:"✓其他" },
-  { id:"people",        label:"人數" },
-  { id:"driver",        label:"駕駛" },
-  { id:"carNo",         label:"車號" }
-];
+  // 用你提供的座標
+  const positions = {
+    companyTitle:   { x: 100,  y: 19  },
+    clientCompany:  { x: 282,  y: 251 },
+    dateMonth:      { x: 1751, y: 259 },
+    dateDay:        { x: 1955, y: 259 },
+    serviceSong:    { x: 1533, y: 418 },
+    serviceJie:     { x: 1734, y: 418 },
+    serviceBao:     { x: 1936, y: 419 },
+    passenger:      { x: 268,  y: 422 },
+    phone:          { x: 1022, y: 419 },
+    startTime:      { x: 1596, y: 608 },
+    origin:         { x: 481,  y: 578 },
+    destination:    { x: 482,  y: 740 },
+    holdSign:       { x: 1212, y: 951 },
+    carTypeSedan:   { x: 260,  y: 1041 },
+    carTypeSUV:     { x: 474,  y: 1040 },
+    carTypeOther:   { x: 267,  y: 1162 },
+    people:         { x: 1041, y: 1096 },
+    driver:         { x: 268,  y: 1290 },
+    carNo:          { x: 919,  y: 1292 }
+  };
 
-const wrap = document.getElementById("canvasWrap");
+  // 需要自動換行的欄位 & 每一欄的「最大寬度」
+  const wrapRegions = {
+    companyTitle:  { maxWidth: 800, fontSize: 60, lineHeight: 68 },
+    clientCompany: { maxWidth: 1050, fontSize: 44, lineHeight: 52 },
+    passenger:     { maxWidth: 650, fontSize: 44, lineHeight: 52 },
+    origin:        { maxWidth: 1100, fontSize: 44, lineHeight: 52 },
+    destination:   { maxWidth: 1100, fontSize: 44, lineHeight: 52 }
+  };
 
-// 等底圖載完再放方塊（避免位置怪怪的）
-const templateImg = document.getElementById("template");
-templateImg.onload = () => {
-  placeBlocks();
-};
-if (templateImg.complete) {
-  // 已經在 cache
-  placeBlocks();
-}
+  const templateImg  = document.getElementById("templateImage");
+  const form         = document.getElementById("dispatchForm");
+  const modalBack    = document.getElementById("modalBackdrop");
+  const resultImage  = document.getElementById("resultImage");
 
-function placeBlocks(){
-  fieldDefs.forEach((f, idx) => {
-    const div = document.createElement("div");
-    div.className = "dragItem";
-    div.dataset.id = f.id;
-    div.innerText = f.label;
-    // 先全部丟在左上角一區，避免疊在一起看不到
-    div.style.left = 20 + (idx % 3) * 120 + "px";
-    div.style.top  = 20 + Math.floor(idx / 3) * 50 + "px";
-    wrap.appendChild(div);
-    makeDraggable(div);
-  });
-}
+  function openModal(){ modalBack.style.display = "flex"; }
+  function closeModal(){ modalBack.style.display = "none"; }
+  window.closeModal = closeModal;
 
-// 拖曳功能
-function makeDraggable(el) {
-  let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+  function setFont(ctx, size, bold=true){
+    ctx.font = (bold ? "bold " : "") + size + 'px "Microsoft JhengHei","Noto Sans TC",system-ui';
+    ctx.fillStyle = "#000";
+    ctx.textBaseline = "top";
+  }
 
-  el.addEventListener("mousedown", dragStart);
-  el.addEventListener("touchstart", dragStart, {passive:false});
+  function drawText(ctx, text, pos, size) {
+    if (!text) return;
+    setFont(ctx, size, true);
+    ctx.fillText(text, pos.x, pos.y);
+  }
 
-  function dragStart(e) {
+  // 中文自動換行：用字元一個一個測寬度
+  function drawWrappedText(ctx, text, pos, region){
+    if (!text) return;
+    const fontSize   = region.fontSize || 44;
+    const lineHeight = region.lineHeight || (fontSize + 6);
+    const maxWidth   = region.maxWidth;
+
+    setFont(ctx, fontSize, true);
+
+    let x = pos.x;
+    let y = pos.y;
+    let line = "";
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+
+      if (ch === "\n") { // 手動換行
+        ctx.fillText(line, x, y);
+        line = "";
+        y += lineHeight;
+        continue;
+      }
+
+      const testLine = line + ch;
+      const w = ctx.measureText(testLine).width;
+
+      if (w > maxWidth && line !== "") {
+        ctx.fillText(line, x, y);
+        line = ch;
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+
+    if (line !== "") {
+      ctx.fillText(line, x, y);
+    }
+  }
+
+  function drawCheck(ctx, pos, size = 40) {
+    setFont(ctx, size, true);
+    ctx.fillText("✓", pos.x, pos.y);
+  }
+
+  form.addEventListener("submit", function(e){
     e.preventDefault();
-    const evt = e.touches ? e.touches[0] : e;
-
-    startX = evt.clientX;
-    startY = evt.clientY;
-
-    offsetX = el.offsetLeft;
-    offsetY = el.offsetTop;
-
-    document.addEventListener("mousemove", dragging);
-    document.addEventListener("mouseup", dragEnd);
-
-    document.addEventListener("touchmove", dragging, {passive:false});
-    document.addEventListener("touchend", dragEnd);
-  }
-
-  function dragging(e) {
-    const evt = e.touches ? e.touches[0] : e;
-    const dx = evt.clientX - startX;
-    const dy = evt.clientY - startY;
-
-    el.style.left = offsetX + dx + "px";
-    el.style.top  = offsetY + dy + "px";
-  }
-
-  function dragEnd() {
-    document.removeEventListener("mousemove", dragging);
-    document.removeEventListener("mouseup", dragEnd);
-    document.removeEventListener("touchmove", dragging);
-    document.removeEventListener("touchend", dragEnd);
-  }
-}
-
-// 匯出座標（以原圖像素為準，會把縮放算回去）
-function exportPositions() {
-  const scale = parseInt(document.getElementById("scaleRange").value, 10) / 100;
-  const items = document.getElementsByClassName("dragItem");
-  let result = "";
-
-  Array.from(items).forEach(el => {
-    const id = el.dataset.id;
-    const fieldDef = fieldDefs.find(f => f.id === id);
-    const label = fieldDef ? fieldDef.label : id;
-
-    // 目前的 left/top 是縮放後的座標，要除以 scale
-    const x = Math.round(el.offsetLeft / scale);
-    const y = Math.round(el.offsetTop / scale);
-
-    result += `${id}: { x: ${x}, y: ${y} }    // ${label}\n`;
+    if (!templateImg.complete) {
+      templateImg.onload = generateSlip;
+    } else {
+      generateSlip();
+    }
   });
 
-  document.getElementById("output").innerText = result;
-}
+  function generateSlip(){
+    // 用目前圖片的顯示尺寸來畫，這樣會跟你量座標時一致
+    const displayWidth  = templateImg.width;
+    const displayHeight = templateImg.height;
 
-// 縮放滑桿
-const scaleRange = document.getElementById("scaleRange");
-const scaleVal = document.getElementById("scaleVal");
-scaleRange.addEventListener("input", () => {
-  const v = parseInt(scaleRange.value, 10);
-  scaleVal.textContent = v + "%";
-  const s = v / 100;
-  wrap.style.transform = "scale(" + s + ")";
-});
+    const canvas = document.createElement("canvas");
+    canvas.width  = displayWidth;
+    canvas.height = displayHeight;
+    const ctx = canvas.getContext("2d");
+
+    ctx.drawImage(templateImg, 0, 0, displayWidth, displayHeight);
+
+    // 取值
+    const companyTitle = document.getElementById("companyTitle").value.trim();
+    const clientCompany= document.getElementById("clientCompany").value.trim();
+    const dateValue    = document.getElementById("date").value;
+    const passenger    = document.getElementById("passenger").value.trim();
+    const phone        = document.getElementById("phone").value.trim();
+    const origin       = document.getElementById("origin").value.trim();
+    const destination  = document.getElementById("destination").value.trim();
+    const startTime    = document.getElementById("startTime").value;
+    const holdSign     = document.getElementById("holdSign").checked;
+    const people       = document.getElementById("people").value.trim();
+    const driver       = document.getElementById("driver").value.trim();
+    const carNo        = document.getElementById("carNo").value.trim();
+    const serviceType  = document.querySelector('input[name="serviceType"]:checked').value;
+    const carType      = document.querySelector('input[name="carType"]:checked').value;
+
+    // 日期轉「月 / 日」
+    let monthText = "", dayText = "";
+    if (dateValue) {
+      const d = new Date(dateValue);
+      if (!isNaN(d)) {
+        monthText = String(d.getMonth() + 1);
+        dayText   = String(d.getDate());
+      }
+    }
+
+    // 時間直接 HH:MM
+    const timeText = startTime || "";
+
+    // --- 套字（有換行的用 drawWrappedText，其他用 drawText） ---
+    drawWrappedText(ctx, companyTitle, positions.companyTitle, wrapRegions.companyTitle);
+    drawWrappedText(ctx, clientCompany, positions.clientCompany, wrapRegions.clientCompany);
+
+    drawText(ctx, monthText, positions.dateMonth, 44);
+    drawText(ctx, dayText,   positions.dateDay,   44);
+
+    drawWrappedText(ctx, passenger, positions.passenger, wrapRegions.passenger);
+    drawText(ctx, phone,      positions.phone,    44);
+    drawText(ctx, timeText,   positions.startTime,40);
+
+    drawWrappedText(ctx, origin,      positions.origin,      wrapRegions.origin);
+    drawWrappedText(ctx, destination, positions.destination, wrapRegions.destination);
+
+    if (serviceType === "song") drawCheck(ctx, positions.serviceSong, 40);
+    if (serviceType === "jie")  drawCheck(ctx, positions.serviceJie,  40);
+    if (serviceType === "bao")  drawCheck(ctx, positions.serviceBao,  40);
+
+    if (holdSign) drawCheck(ctx, positions.holdSign, 40);
+
+    if (carType === "sedan") drawCheck(ctx, positions.carTypeSedan, 40);
+    if (carType === "suv")   drawCheck(ctx, positions.carTypeSUV,   40);
+    if (carType === "other") drawCheck(ctx, positions.carTypeOther, 40);
+
+    drawText(ctx, people ? people + "人" : "", positions.people, 44);
+    drawText(ctx, driver, positions.driver, 44);
+    drawText(ctx, carNo,  positions.carNo,  44);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    resultImage.src = dataUrl;
+    openModal();
+  }
+
+  // 點背景可以關閉
+  modalBack.addEventListener("click", function(e){
+    if (e.target === modalBack) closeModal();
+  });
 </script>
 </body>
 </html>
